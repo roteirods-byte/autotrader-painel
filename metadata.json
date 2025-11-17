@@ -1,0 +1,6 @@
+{
+  "name": "Copy of CRIPTO AUTOTRADER",
+  "description": "Painel de monitoramento para automação de trading.",
+  "entrypoint": "index.html",
+  "requestFramePermissions": []
+}
