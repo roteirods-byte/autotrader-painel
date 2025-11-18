@@ -13,7 +13,7 @@ interface Operation {
   side: Side;
   modo: Mode;
   entrada: number;
-  alvo: number;
+  alvo: number;        // continua existindo, só não é exibido na tabela
   precoAtual: number;
   pnlPct: number;
   situacao: 'ABERTA' | 'FECHADA';
@@ -143,7 +143,7 @@ const ExitPanel: React.FC<ExitPanelProps> = ({ coins }) => {
         MONITORAMENTO DE SAÍDA
       </h2>
 
-      {/* BARRA DE DIGITAÇÃO DA OPERAÇÃO (sem Gain% e Stop%) */}
+      {/* BARRA DE DIGITAÇÃO DA OPERAÇÃO */}
       <div className="bg-[#0b2533] border border-gray-700 rounded-lg p-4 mb-6">
         <div className="flex flex-wrap gap-3 items-center">
           {/* PAR */}
@@ -195,7 +195,7 @@ const ExitPanel: React.FC<ExitPanelProps> = ({ coins }) => {
             onChange={e => updateForm('entrada', e.target.value)}
           />
 
-          {/* ALVO (manual, no lugar de Gain/Stop) */}
+          {/* ALVO (continua só na barra, não aparece na tabela) */}
           <input
             type="number"
             step="0.0001"
@@ -224,7 +224,7 @@ const ExitPanel: React.FC<ExitPanelProps> = ({ coins }) => {
         </div>
       </div>
 
-      {/* TABELA DE MONITORAMENTO */}
+      {/* TABELA DE MONITORAMENTO (SEM COLUNA ALVO) */}
       <div className="overflow-x-auto rounded-lg border border-gray-700">
         <table className="min-w-full bg-[#0b2533] text-sm text-left text-[#e7edf3]">
           <thead className="bg-[#1e3a4c] text-xs uppercase text-[#ff7b1b]">
@@ -233,7 +233,6 @@ const ExitPanel: React.FC<ExitPanelProps> = ({ coins }) => {
               <th className="px-4 py-3">SIDE</th>
               <th className="px-4 py-3">MODO</th>
               <th className="px-4 py-3">ENTRADA</th>
-              <th className="px-4 py-3">ALVO</th>
               <th className="px-4 py-3">PREÇO ATUAL</th>
               <th className="px-4 py-3">PNL%</th>
               <th className="px-4 py-3">SITUAÇÃO</th>
@@ -266,9 +265,6 @@ const ExitPanel: React.FC<ExitPanelProps> = ({ coins }) => {
                 </td>
                 <td className="px-4 py-2">
                   {formatNumber(op.entrada)}
-                </td>
-                <td className="px-4 py-2">
-                  {formatNumber(op.alvo)}
                 </td>
                 <td className="px-4 py-2">
                   {formatNumber(op.precoAtual)}
@@ -307,7 +303,7 @@ const ExitPanel: React.FC<ExitPanelProps> = ({ coins }) => {
             {ops.length === 0 && (
               <tr>
                 <td
-                  colSpan={12}
+                  colSpan={11}
                   className="px-4 py-4 text-center text-gray-400"
                 >
                   Nenhuma operação cadastrada.
