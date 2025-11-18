@@ -1,6 +1,6 @@
 // src/constants.tsx
 // Lista oficial de 39 moedas do projeto (ordem alfabética)
-export const ALL_COINS: string[] = [
+  export const ALL_COINS = [
   'AAVE',
   'ADA',
   'APT',
