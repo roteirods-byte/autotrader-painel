@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { EntryData } from '../types';
 import { getSwingData, getPosicionalData } from '../api/mock';
-import { GoogleGenAI, Type } from '@google/genai';
 
 interface EntryPanelProps {
   coins: string[];
 }
 
-const GEMINI_API_KEY = import.meta.env.VITE_API_KEY;
+// API externa desativada por enquanto
+const GEMINI_API_KEY = '';
 
 const EntryPanel: React.FC<EntryPanelProps> = ({ coins }) => {
   const [swingData, setSwingData] = useState<EntryData[]>([]);
@@ -17,19 +17,11 @@ const EntryPanel: React.FC<EntryPanelProps> = ({ coins }) => {
   const [error, setError] = useState<string>('');
 
 const fetchAndUpdatePrices = useCallback(async () => {
-    // Validação mais robusta da chave de API
-    if (!GEMINI_API_KEY || GEMINI_API_KEY.length < 10) {
-      setError('ERRO CRÍTICO: A chave da API (VITE_API_KEY) não foi configurada corretamente nas Variáveis de Ambiente do Render. Verifique se a chave foi inserida e é válida.');
-      setLoading(false);
-      return;
-    }
-
-    setError('');
-    console.log('Atualizando preços...');
-
-    try {
-      const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
-      const coinList = coins.join(', ');
+  // Atualização via API externa desativada por enquanto.
+  setError('');
+  setLoading(false);
+  console.log('Atualização de preços desativada (sem API externa).');
+}, [setError, setLoading]);
 
       const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash',
