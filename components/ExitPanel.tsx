@@ -1,4 +1,3 @@
-// src/components/ExitPanel.tsx
 import React, { useEffect, useState } from 'react';
 
 interface ExitPanelProps {
@@ -36,7 +35,7 @@ const ExitPanel: React.FC<ExitPanelProps> = ({ coins }) => {
     alav: '',
   });
 
-  // Carrega operações salvas (localStorage)
+  // Carrega operações salvas
   useEffect(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
@@ -84,7 +83,7 @@ const ExitPanel: React.FC<ExitPanelProps> = ({ coins }) => {
       minute: '2-digit',
     });
 
-    // Sem feed de preço por enquanto: começa com preço atual = entrada
+    // por enquanto: preço atual = entrada (sem integração com corretora)
     const precoAtual = entrada;
     const pnlPct = calcularPnl(form.side, entrada, precoAtual, alav);
 
@@ -117,7 +116,7 @@ const ExitPanel: React.FC<ExitPanelProps> = ({ coins }) => {
         MONITORAMENTO DE SAÍDA
       </h2>
 
-      {/* LINHA DE CADASTRO (sem GANHO / STOP) */}
+      {/* LINHA DE CADASTRO (SEM GANHO / STOP) */}
       <div className="flex flex-wrap gap-3 mb-6 items-center">
         {/* PAR */}
         <select
@@ -192,7 +191,7 @@ const ExitPanel: React.FC<ExitPanelProps> = ({ coins }) => {
         </button>
       </div>
 
-      {/* TABELA (sem colunas GANHO / STOP) */}
+      {/* TABELA (SEM COLUNAS GANHO / STOP) */}
       <div className="overflow-x-auto rounded-lg border border-gray-700">
         <table className="min-w-full bg-[#0b2533] text-sm text-left text-[#e7edf3]">
           <thead className="bg-[#1e3a4c] text-xs uppercase text-[#ff7b1b]">
