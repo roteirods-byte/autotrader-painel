@@ -1,5 +1,4 @@
-// src/components/EntryPanel.tsx
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { EntryData } from '../types';
 import { getSwingData, getPosicionalData } from '../api/mock';
 
@@ -7,12 +6,10 @@ interface EntryPanelProps {
   coins: string[];
 }
 
-/**
- * Painel de ENTRADA
- * - Usa apenas dados locais (mock) por enquanto.
- * - Filtra pelas moedas definidas no painel "Moedas".
- * - Nenhuma dependência de VITE_API_KEY ou APIs externas.
- */
+// URL do backend da automação (Python).
+// Ex.: VITE_BACKEND_URL="https://seu-backend.com"
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL as string | undefined;
+
 const EntryPanel: React.FC<EntryPanelProps> = ({ coins }) => {
   const [swingData, setSwingData] = useState<EntryData[]>([]);
   const [posicionalData, setPosicionalData] = useState<EntryData[]>([]);
@@ -20,54 +17,79 @@ const EntryPanel: React.FC<EntryPanelProps> = ({ coins }) => {
   const [lastUpdated, setLastUpdated] = useState<string>('');
   const [error, setError] = useState<string>('');
 
-  // Lógica de atualização dos dados (separada do layout)
-  const fetchAndUpdateData = useCallback(() => {
-    try {
-      setLoading(true);
-      setError('');
+  // Filtra pelas moedas cadastradas no painel MOEDAS
+  const filterByCoins = useCallback(
+    (data: EntryData[]) => data.filter((d) => coins.includes(d.par)),
+    [coins]
+  );
 
-      // Lê dados "brutos" (mock/local)
-      const allSwing = getSwingData();
-      const allPosicional = getPosicionalData();
+  // Carrega dados de exemplo (mock) – usado como fallback
+  const loadFromMock = useCallback(() => {
+    const initialSwing = filterByCoins(getSwingData());
+    const initialPosicional = filterByCoins(getPosicionalData());
+    setSwingData(initialSwing);
+    setPosicionalData(initialPosicional);
+    setLastUpdated(new Date().toLocaleTimeString('pt-BR'));
+  }, [filterByCoins]);
 
-      // Filtra pelas moedas selecionadas no painel Moedas
-      const filteredSwing = allSwing.filter((d) => coins.includes(d.par));
-      const filteredPosicional = allPosicional.filter((d) =>
-        coins.includes(d.par)
+  // Busca dados no backend da automação
+  const fetchAndUpdateData = useCallback(async () => {
+    setError('');
+    setLoading(true);
+
+    // Se backend não estiver configurado, usa apenas mock
+    if (!BACKEND_URL || BACKEND_URL.length < 5) {
+      loadFromMock();
+      setError(
+        'AVISO: backend da automação (VITE_BACKEND_URL) não está configurado. Exibindo dados de exemplo.'
       );
+      setLoading(false);
+      return;
+    }
 
-      // Mantém a mesma ordem do array coins
-      const orderMap = new Map(coins.map((c, i) => [c, i]));
-      const sortByCoins = (a: EntryData, b: EntryData) => {
-        const ia = orderMap.get(a.par) ?? 9999;
-        const ib = orderMap.get(b.par) ?? 9999;
-        return ia - ib;
-      };
+    try {
+      const url = `${BACKEND_URL.replace(/\/$/, '')}/entrada`;
+      const res = await fetch(url);
 
-      setSwingData(filteredSwing.sort(sortByCoins));
-      setPosicionalData(filteredPosicional.sort(sortByCoins));
-
-      setLastUpdated(new Date().toLocaleString('pt-BR'));
-    } catch (e) {
-      console.error(e);
-      let message = 'Falha ao carregar dados de entrada.';
-      if (e instanceof Error) {
-        message += ` ${e.message}`;
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
       }
-      setError(message);
+
+      const json = await res.json();
+
+      const swing: EntryData[] = Array.isArray(json.swing) ? json.swing : [];
+      const posicional: EntryData[] = Array.isArray(json.posicional)
+        ? json.posicional
+        : [];
+
+      if (!swing.length && !posicional.length) {
+        throw new Error('Resposta da automação vazia ou em formato inesperado.');
+      }
+
+      setSwingData(filterByCoins(swing));
+      setPosicionalData(filterByCoins(posicional));
+      setLastUpdated(new Date().toLocaleTimeString('pt-BR'));
+    } catch (e) {
+      console.error('Erro ao buscar dados de entrada:', e);
+      loadFromMock();
+      let msg = 'Falha ao conectar na automação. Exibindo dados de exemplo.';
+      if (e instanceof Error) {
+        msg = `Falha ao conectar na automação: ${e.message}. Exibindo dados de exemplo.`;
+      }
+      setError(msg);
     } finally {
       setLoading(false);
     }
-  }, [coins]);
+  }, [filterByCoins, loadFromMock]);
 
-  // Carrega na entrada e a cada 10 minutos (sem API externa)
+  // Atualiza na carga da página e a cada 10 minutos
   useEffect(() => {
     fetchAndUpdateData();
-    const intervalId = setInterval(fetchAndUpdateData, 10 * 60 * 1000);
+
+    const intervalId = setInterval(fetchAndUpdateData, 10 * 60 * 1000); // 10 min
     return () => clearInterval(intervalId);
   }, [fetchAndUpdateData]);
 
-  // Somente layout daqui pra baixo
   const renderTable = (title: string, data: EntryData[]) => (
     <div className="w-full">
       <h3 className="text-xl font-bold text-[#ff7b1b] mb-4 text-center">
@@ -147,7 +169,7 @@ const EntryPanel: React.FC<EntryPanelProps> = ({ coins }) => {
     </div>
   );
 
-  if (loading && swingData.length === 0) {
+  if (loading && swingData.length === 0 && posicionalData.length === 0) {
     return (
       <div className="text-center text-lg text-gray-300">
         Carregando dados de entrada...
@@ -155,7 +177,7 @@ const EntryPanel: React.FC<EntryPanelProps> = ({ coins }) => {
     );
   }
 
-  if (error && swingData.length === 0) {
+  if (error && swingData.length === 0 && posicionalData.length === 0) {
     return (
       <p className="text-center text-red-400 bg-red-900 bg-opacity-30 p-3 rounded-md mb-4">
         {error}
@@ -166,7 +188,7 @@ const EntryPanel: React.FC<EntryPanelProps> = ({ coins }) => {
   return (
     <div className="w-full">
       {error && (
-        <p className="text-center text-red-400 bg-red-900 bg-opacity-30 p-3 rounded-md mb-4">
+        <p className="text-center text-yellow-300 bg-yellow-900 bg-opacity-20 p-3 rounded-md mb-4 text-sm">
           {error}
         </p>
       )}
