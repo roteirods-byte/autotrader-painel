@@ -6,94 +6,103 @@ interface CoinsPanelProps {
 }
 
 const CoinsPanel: React.FC<CoinsPanelProps> = ({ coins, setCoins }) => {
-  const [newCoinsText, setNewCoinsText] = useState('');
-  const [selected, setSelected] = useState<Record<string, boolean>>({});
+  const [newCoinsInput, setNewCoinsInput] = useState('');
+  const [selectedCoins, setSelectedCoins] = useState<string[]>([]);
 
-  const sortedCoins = [...coins].sort();
-
-  const handleAdd = () => {
-    if (!newCoinsText.trim()) return;
-
-    const parts = newCoinsText
+  const handleAddCoins = () => {
+    const parsed = newCoinsInput
       .split(',')
       .map((c) => c.trim().toUpperCase())
-      .filter(Boolean);
+      .filter((c) => c.length > 0);
 
-    if (!parts.length) return;
+    if (parsed.length === 0) return;
 
-    const merged = Array.from(new Set([...coins, ...parts])).sort();
+    const merged = Array.from(new Set([...coins, ...parsed]));
+    merged.sort();
     setCoins(merged);
-    setNewCoinsText('');
+    setNewCoinsInput('');
   };
 
-  const handleToggle = (coin: string) => {
-    setSelected((prev) => ({ ...prev, [coin]: !prev[coin] }));
+  const toggleSelectCoin = (coin: string) => {
+    setSelectedCoins((prev) =>
+      prev.includes(coin)
+        ? prev.filter((c) => c !== coin)
+        : [...prev, coin]
+    );
   };
 
   const handleRemoveSelected = () => {
-    const toRemove = new Set(
-      Object.entries(selected)
-        .filter(([, value]) => value)
-        .map(([key]) => key),
-    );
-
-    if (!toRemove.size) return;
-
-    const remaining = coins.filter((c) => !toRemove.has(c));
+    if (selectedCoins.length === 0) return;
+    const remaining = coins.filter((c) => !selectedCoins.includes(c));
     setCoins(remaining);
-    setSelected({});
+    setSelectedCoins([]);
   };
 
   return (
-    <div className="w-full max-w-4xl mx-auto text-sm sm:text-base">
-      <h2 className="text-2xl font-semibold text-[#ff7b1b] mb-4">
-        PAINEL DE MOEDAS
-      </h2>
+    <div className="w-full max-w-5xl mx-auto">
+      <h2 className="text-2xl font-bold text-[#ff7b1b] mb-6">PAINEL DE MOEDAS</h2>
 
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        <label className="text-white mr-2">
-          Nova(s):{' '}
-          <input
-            type="text"
-            value={newCoinsText}
-            onChange={(e) => setNewCoinsText(e.target.value)}
-            placeholder="ex.: BTC, ETH, SOL"
-            className="px-2 py-1 text-black text-sm w-64"
-          />
-        </label>
-        <button
-          onClick={handleAdd}
-          className="px-3 py-1 bg-[#1d4ed8] text-white text-sm"
-        >
-          Adicionar
-        </button>
-      </div>
+      <div className="bg-[#0b2533] rounded-xl border border-gray-700 p-6 sm:p-8">
+        {/* Linha de entrada de novas moedas */}
+        <div className="flex flex-col md:flex-row md:items-end gap-4 mb-6">
+          <div className="flex flex-col md:flex-1 max-w-xs">
+            <label className="mb-2 text-sm font-semibold text-[#ff7b1b]">
+              Nova(s):
+            </label>
+            <input
+              type="text"
+              value={newCoinsInput}
+              onChange={(e) => setNewCoinsInput(e.target.value)}
+              placeholder="ex.: BTC, ETH, SOL"
+              className="w-full rounded-md bg-[#1e3a4c] border border-gray-600 px-4 py-2 text-sm text-[#e7edf3] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#ff7b1b]"
+            />
+          </div>
 
-      <div className="border border-gray-700 p-3 max-h-[420px] overflow-y-auto bg-[#020617]">
-        <ul className="space-y-1">
-          {sortedCoins.map((coin) => (
-            <li key={coin} className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={!!selected[coin]}
-                onChange={() => handleToggle(coin)}
-              />
-              <span className="text-white">{coin}</span>
-            </li>
-          ))}
-        </ul>
-      </div>
+          <button
+            type="button"
+            onClick={handleAddCoins}
+            className="h-[38px] px-6 rounded-md bg-[#ff7b1b] text-sm font-semibold text-[#0b2533] self-start md:self-auto hover:bg-[#ffa24d] transition-colors"
+          >
+            Adicionar
+          </button>
+        </div>
 
-      <div className="mt-3 flex flex-wrap items-center gap-4">
-        <span className="text-white">
-          Total: {sortedCoins.length} pares (ordem alfabética)
-        </span>
-        <button
-          onClick={handleRemoveSelected}
-          className="px-3 py-1 bg-[#7f1d1d] text-white text-sm"
-        >
-          Remover selecionadas
-        </button>
+        {/* Lista de moedas */}
+        <div className="bg-[#0b2533] rounded-md border border-gray-700 max-h-72 overflow-y-auto px-4 py-3">
+          {coins.length === 0 ? (
+            <p className="text-sm text-gray-300">Nenhuma moeda cadastrada.</p>
+          ) : (
+            <ul className="space-y-1 text-sm text-[#e7edf3]">
+              {coins.map((coin) => (
+                <li key={coin} className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    checked={selectedCoins.includes(coin)}
+                    onChange={() => toggleSelectCoin(coin)}
+                    className="accent-[#ff7b1b]"
+                  />
+                  <span>{coin}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        {/* Rodapé: total + botão remover */}
+        <div className="mt-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <span className="text-xs sm:text-sm text-[#ff7b1b]">
+            Total: {coins.length} pares (ordem alfabética)
+          </span>
+
+          <button
+            type="button"
+            onClick={handleRemoveSelected}
+            className="px-4 py-2 rounded-md bg-red-600 text-xs sm:text-sm font-semibold text-white hover:bg-red-500 transition-colors disabled:opacity-40"
+            disabled={selectedCoins.length === 0}
+          >
+            Remover selecionadas
+          </button>
+        </div>
       </div>
     </div>
   );
