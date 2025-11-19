@@ -1,115 +1,112 @@
-// components/CoinsPanel.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useMemo, useState } from 'react';
 
 interface CoinsPanelProps {
   coins: string[];
-  setCoins: React.Dispatch<React.SetStateAction<string[]>>;
+  setCoins: (coins: string[]) => void;
 }
 
 const CoinsPanel: React.FC<CoinsPanelProps> = ({ coins, setCoins }) => {
-  const [newCoins, setNewCoins] = useState('');
-  const [selected, setSelected] = useState<Record<string, boolean>>({});
+  const [input, setInput] = useState('');
+  const [selected, setSelected] = useState<string[]>([]);
 
-  // Mantém seleção somente para moedas que ainda existem
-  useEffect(() => {
-    setSelected((prev) => {
-      const next: Record<string, boolean> = {};
-      coins.forEach((c) => {
-        if (prev[c]) next[c] = true;
-      });
-      return next;
-    });
-  }, [coins]);
+  // mantém sempre em ordem alfabética
+  const sortedCoins = useMemo(
+    () => [...coins].sort((a, b) => a.localeCompare(b)),
+    [coins]
+  );
 
   const handleAdd = () => {
-    if (!newCoins.trim()) return;
+    if (!input.trim()) return;
 
-    const parsed = newCoins
-      .split(/[,\s]+/)
+    const newCoins = input
+      .split(',')
       .map((c) => c.trim().toUpperCase())
       .filter((c) => c.length > 0);
 
-    if (parsed.length === 0) return;
+    if (newCoins.length === 0) return;
 
-    const current = new Set(coins);
-    parsed.forEach((c) => current.add(c));
-
-    const updated = Array.from(current).sort();
-    setCoins(updated);
-    setNewCoins('');
+    const merged = Array.from(new Set([...coins, ...newCoins])).sort((a, b) =>
+      a.localeCompare(b)
+    );
+    setCoins(merged);
+    setInput('');
   };
 
-  const handleToggle = (coin: string) => {
-    setSelected((prev) => ({
-      ...prev,
-      [coin]: !prev[coin],
-    }));
+  const toggleSelect = (coin: string) => {
+    setSelected((prev) =>
+      prev.includes(coin) ? prev.filter((c) => c !== coin) : [...prev, coin]
+    );
   };
 
-  const handleRemoveSelected = () => {
-    const remaining = coins.filter((c) => !selected[c]);
+  const handleRemove = () => {
+    if (selected.length === 0) return;
+    const remaining = coins.filter((c) => !selected.includes(c));
     setCoins(remaining);
-    setSelected({});
+    setSelected([]);
   };
 
   return (
-    <div className="w-full max-w-4xl mx-auto bg-[#081f2c] border border-gray-700 rounded-xl p-6 shadow-lg">
-      <h2 className="text-2xl font-bold text-[#ff7b1b] mb-6">PAINEL DE MOEDAS</h2>
+    <div className="w-full max-w-4xl mx-auto">
+      <h2 className="text-2xl font-bold text-[#ff7b1b] mb-6">
+        PAINEL DE MOEDAS
+      </h2>
 
-      {/* Linha de entrada */}
-      <div className="flex flex-wrap items-center gap-3 mb-4">
-        <span className="text-sm font-semibold text-[#ff7b1b]">Nova(s):</span>
-        <input
-          type="text"
-          value={newCoins}
-          onChange={(e) => setNewCoins(e.target.value)}
-          placeholder="ex: BTC, ETH, SOL"
-          className="h-9 w-64 px-3 text-sm rounded-md bg-[#0b2533] border border-gray-600 text-[#e7edf3] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#ff7b1b]"
-        />
-        <button
-          type="button"
-          onClick={handleAdd}
-          className="h-9 px-4 text-sm font-semibold rounded-md bg-[#0b2533] text-[#ff7b1b] border border-[#ff7b1b] hover:bg-[#102b3a] transition"
-        >
-          Adicionar
-        </button>
-      </div>
-
-      {/* Caixa de lista de moedas */}
-      <div className="mt-2">
-        <div className="rounded-lg border border-gray-700 bg-[#020f1a] px-3 py-2 max-h-64 overflow-y-auto w-full md:w-[460px]">
-          {coins.map((coin) => (
-            <label
-              key={coin}
-              className="flex items-center gap-2 text-sm text-[#e7edf3] py-0.5"
-            >
-              <input
-                type="checkbox"
-                checked={!!selected[coin]}
-                onChange={() => handleToggle(coin)}
-                className="accent-[#ff7b1b]"
-              />
-              <span>{coin}</span>
-            </label>
-          ))}
-        </div>
-
-        <div className="flex items-center justify-between mt-2 w-full md:w-[460px]">
-          <span className="text-xs text-gray-300">
-            Total:{' '}
-            <span className="text-[#ff7b1b] font-semibold">
-              {coins.length} pares
-            </span>{' '}
-            (ordem alfabética)
-          </span>
+      <div className="bg-[#082432] border border-[#12384d] rounded-xl px-6 py-6">
+        {/* Linha de entrada + botão Adicionar */}
+        <div className="flex flex-wrap items-end gap-4 mb-6">
+          <div className="flex flex-col">
+            <span className="text-sm font-semibold text-[#ff7b1b] mb-1">
+              Nova(s):
+            </span>
+            <input
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="ex.: BTC, ETH, SOL"
+              className="w-64 h-9 px-3 rounded-md bg-[#02131f] border border-[#2c4f63] text-sm text-[#e7edf3] placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-[#ff7b1b]"
+            />
+          </div>
 
           <button
             type="button"
-            onClick={handleRemoveSelected}
-            className="h-8 px-4 text-xs sm:text-sm font-semibold rounded-md bg-[#0b2533] text-[#ff7b1b] border border-[#ff7b1b] hover:bg-[#102b3a] transition"
+            onClick={handleAdd}
+            className="h-9 px-6 text-sm font-semibold rounded-md border border-[#ff7b1b] text-[#ff7b1b] bg-[#082432] hover:bg-[#ff7b1b]/10 transition-colors"
+          >
+            Adicionar
+          </button>
+
+          <button
+            type="button"
+            onClick={handleRemove}
+            disabled={selected.length === 0}
+            className="h-9 px-6 text-sm font-semibold rounded-md border border-[#ff7b1b] text-[#ff7b1b] bg-[#082432] hover:bg-[#ff7b1b]/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors ml-auto"
           >
             Remover selecionadas
           </button>
+        </div>
+
+        {/* Lista de moedas */}
+        <div className="flex flex-col">
+          <div className="w-64 h-72 overflow-y-auto bg-[#02131f] border border-[#ff7b1b] rounded-md px-3 py-2 space-y-1">
+            {sortedCoins.map((coin) => (
+              <label
+                key={coin}
+                className="flex items-center gap-2 text-sm text-[#e7edf3]"
+              >
+                <input
+                  type="checkbox"
+                  checked={selected.includes(coin)}
+                  onChange={() => toggleSelect(coin)}
+                  className="accent-[#ff7b1b]"
+                />
+                <span>{coin}</span>
+              </label>
+            ))}
+          </div>
+
+          <span className="mt-2 text-xs text-[#ff7b1b]">
+            Total: {sortedCoins.length} pares (ordem alfabética)
+          </span>
         </div>
       </div>
     </div>
