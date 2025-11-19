@@ -6,10 +6,6 @@ interface EntryPanelProps {
   coins: string[];
 }
 
-// URL do backend da automação (Python).
-// Ex.: VITE_BACKEND_URL="https://seu-backend.com"
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL as string | undefined;
-
 const EntryPanel: React.FC<EntryPanelProps> = ({ coins }) => {
   const [swingData, setSwingData] = useState<EntryData[]>([]);
   const [posicionalData, setPosicionalData] = useState<EntryData[]>([]);
@@ -17,13 +13,11 @@ const EntryPanel: React.FC<EntryPanelProps> = ({ coins }) => {
   const [lastUpdated, setLastUpdated] = useState<string>('');
   const [error, setError] = useState<string>('');
 
-  // Filtra pelas moedas cadastradas no painel MOEDAS
   const filterByCoins = useCallback(
     (data: EntryData[]) => data.filter((d) => coins.includes(d.par)),
     [coins]
   );
 
-  // Carrega dados de exemplo (mock) – usado como fallback
   const loadFromMock = useCallback(() => {
     const initialSwing = filterByCoins(getSwingData());
     const initialPosicional = filterByCoins(getPosicionalData());
@@ -32,24 +26,13 @@ const EntryPanel: React.FC<EntryPanelProps> = ({ coins }) => {
     setLastUpdated(new Date().toLocaleTimeString('pt-BR'));
   }, [filterByCoins]);
 
-  // Busca dados no backend da automação
   const fetchAndUpdateData = useCallback(async () => {
     setError('');
     setLoading(true);
 
-    // Se backend não estiver configurado, usa apenas mock
-    if (!BACKEND_URL || BACKEND_URL.length < 5) {
-      loadFromMock();
-      setError(
-        'AVISO: backend da automação (VITE_BACKEND_URL) não está configurado. Exibindo dados de exemplo.'
-      );
-      setLoading(false);
-      return;
-    }
-
     try {
-      const url = `${BACKEND_URL.replace(/\/$/, '')}/entrada`;
-      const res = await fetch(url);
+      // chama backend local via proxy /api (configurado no Vite)
+      const res = await fetch('/api/entrada');
 
       if (!res.ok) {
         throw new Error(`HTTP ${res.status}`);
@@ -82,10 +65,8 @@ const EntryPanel: React.FC<EntryPanelProps> = ({ coins }) => {
     }
   }, [filterByCoins, loadFromMock]);
 
-  // Atualiza na carga da página e a cada 10 minutos
   useEffect(() => {
     fetchAndUpdateData();
-
     const intervalId = setInterval(fetchAndUpdateData, 10 * 60 * 1000); // 10 min
     return () => clearInterval(intervalId);
   }, [fetchAndUpdateData]);
@@ -99,30 +80,14 @@ const EntryPanel: React.FC<EntryPanelProps> = ({ coins }) => {
         <table className="min-w-full bg-[#0b2533] text-sm text-left text-[#e7edf3]">
           <thead className="bg-[#1e3a4c] text-xs uppercase text-[#ff7b1b]">
             <tr>
-              <th scope="col" className="px-4 py-3 w-[60px]">
-                PAR
-              </th>
-              <th scope="col" className="px-4 py-3 w-[120px]">
-                SINAL
-              </th>
-              <th scope="col" className="px-4 py-3 w-[100px]">
-                PREÇO
-              </th>
-              <th scope="col" className="px-4 py-3 w-[100px]">
-                ALVO
-              </th>
-              <th scope="col" className="px-4 py-3 w-[80px]">
-                GANHO%
-              </th>
-              <th scope="col" className="px-4 py-3 w-[80px]">
-                ASSERT%
-              </th>
-              <th scope="col" className="px-4 py-3 w-[100px]">
-                DATA
-              </th>
-              <th scope="col" className="px-4 py-3 w-[96px]">
-                HORA
-              </th>
+              <th scope="col" className="px-4 py-3 w-[60px]">PAR</th>
+              <th scope="col" className="px-4 py-3 w-[120px]">SINAL</th>
+              <th scope="col" className="px-4 py-3 w-[100px]">PREÇO</th>
+              <th scope="col" className="px-4 py-3 w-[100px]">ALVO</th>
+              <th scope="col" className="px-4 py-3 w-[80px]">GANHO%</th>
+              <th scope="col" className="px-4 py-3 w-[80px]">ASSERT%</th>
+              <th scope="col" className="px-4 py-3 w-[100px]">DATA</th>
+              <th scope="col" className="px-4 py-3 w-[96px]">HORA</th>
             </tr>
           </thead>
           <tbody>
