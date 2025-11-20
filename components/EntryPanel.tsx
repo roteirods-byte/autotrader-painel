@@ -1,173 +1,146 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { EntryData } from '../types';
-import { getSwingData, getPosicionalData } from '../api/mock';
+import React, { useEffect, useState } from 'react';
 
-interface EntryPanelProps {
-  coins: string[];
+type EntryData = {
+  par: string;
+  sinal: string;
+  preco: number;
+  alvo: number;
+  ganho: number;
+  assert_pct: number;
+  data: string;
+  hora: string;
+};
+
+type EntradaResponse = {
+  swing: EntryData[];
+  posicional: EntryData[];
+};
+
+async function carregarEntrada(): Promise<EntradaResponse> {
+  const resp = await fetch('/api/entrada');
+
+  if (!resp.ok) {
+    throw new Error(`Erro ao buscar /api/entrada: ${resp.status} ${resp.statusText}`);
+  }
+
+  const json = await resp.json();
+
+  const normalizar = (item: any): EntryData => ({
+    par: String(item.par ?? ''),
+    sinal: String(item.sinal ?? ''),
+    preco: Number(item.preco ?? 0),
+    alvo: Number(item.alvo ?? 0),
+    ganho: Number(item.ganho_pct ?? item.ganho ?? 0),
+    assert_pct: Number(item.assert_pct ?? 0),
+    data: String(item.data ?? ''),
+    hora: String(item.hora ?? ''),
+  });
+
+  const swing = Array.isArray(json.swing) ? json.swing.map(normalizar) : [];
+  const posicional = Array.isArray(json.posicional) ? json.posicional.map(normalizar) : [];
+
+  swing.sort((a, b) => a.par.localeCompare(b.par));
+  posicional.sort((a, b) => a.par.localeCompare(b.par));
+
+  return { swing, posicional };
 }
 
-const EntryPanel: React.FC<EntryPanelProps> = ({ coins }) => {
-  const [swingData, setSwingData] = useState<EntryData[]>([]);
-  const [posicionalData, setPosicionalData] = useState<EntryData[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [lastUpdated, setLastUpdated] = useState<string>('');
-  const [error, setError] = useState<string>('');
+type TabelaProps = {
+  titulo: string;
+  dados: EntryData[];
+};
 
-  const filterByCoins = useCallback(
-    (data: EntryData[]) => data.filter((d) => coins.includes(d.par)),
-    [coins]
-  );
+const TabelaEntrada: React.FC<TabelaProps> = ({ titulo, dados }) => {
+  return (
+    <div className="bg-[#002238] rounded-2xl p-3 shadow-lg text-xs">
+      <h2 className="text-orange-400 font-semibold mb-2">{titulo}</h2>
+      <table className="w-full border-collapse">
+        <thead>
+          <tr className="text-orange-300 border-b border-slate-600">
+            <th className="px-1 py-1 text-left">PAR</th>
+            <th className="px-1 py-1 text-center">SINAL</th>
+            <th className="px-1 py-1 text-center">DATA</th>
+            <th className="px-1 py-1 text-center">HORA</th>
+          </tr>
+        </thead>
+        <tbody>
+          {dados.map((linha, idx) => {
+            const sinalClass =
+              linha.sinal === 'LONG'
+                ? 'text-green-400'
+                : linha.sinal === 'SHORT'
+                ? 'text-red-400'
+                : '';
 
-  const loadFromMock = useCallback(() => {
-    const initialSwing = filterByCoins(getSwingData());
-    const initialPosicional = filterByCoins(getPosicionalData());
-    setSwingData(initialSwing);
-    setPosicionalData(initialPosicional);
-    setLastUpdated(new Date().toLocaleTimeString('pt-BR'));
-  }, [filterByCoins]);
-
-  const fetchAndUpdateData = useCallback(async () => {
-    setError('');
-    setLoading(true);
-
-    try {
-      // chama backend local via proxy /api (configurado no Vite)
-      const res = await fetch('/api/entrada');
-
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`);
-      }
-
-      const json = await res.json();
-
-      const swing: EntryData[] = Array.isArray(json.swing) ? json.swing : [];
-      const posicional: EntryData[] = Array.isArray(json.posicional)
-        ? json.posicional
-        : [];
-
-      if (!swing.length && !posicional.length) {
-        throw new Error('Resposta da automação vazia ou em formato inesperado.');
-      }
-
-      setSwingData(filterByCoins(swing));
-      setPosicionalData(filterByCoins(posicional));
-      setLastUpdated(new Date().toLocaleTimeString('pt-BR'));
-    } catch (e) {
-      console.error('Erro ao buscar dados de entrada:', e);
-      loadFromMock();
-      let msg = 'Falha ao conectar na automação. Exibindo dados de exemplo.';
-      if (e instanceof Error) {
-        msg = `Falha ao conectar na automação: ${e.message}. Exibindo dados de exemplo.`;
-      }
-      setError(msg);
-    } finally {
-      setLoading(false);
-    }
-  }, [filterByCoins, loadFromMock]);
-
-  useEffect(() => {
-    fetchAndUpdateData();
-    const intervalId = setInterval(fetchAndUpdateData, 10 * 60 * 1000); // 10 min
-    return () => clearInterval(intervalId);
-  }, [fetchAndUpdateData]);
-
-  const renderTable = (title: string, data: EntryData[]) => (
-    <div className="w-full">
-      <h3 className="text-xl font-bold text-[#ff7b1b] mb-4 text-center">
-        {title}
-      </h3>
-      <div className="overflow-x-auto rounded-lg border border-gray-700">
-        <table className="min-w-full bg-[#0b2533] text-sm text-left text-[#e7edf3]">
-          <thead className="bg-[#1e3a4c] text-xs uppercase text-[#ff7b1b]">
-            <tr>
-              <th scope="col" className="px-4 py-3 w-[60px]">PAR</th>
-              <th scope="col" className="px-4 py-3 w-[120px]">SINAL</th>
-              <th scope="col" className="px-4 py-3 w-[100px]">PREÇO</th>
-              <th scope="col" className="px-4 py-3 w-[100px]">ALVO</th>
-              <th scope="col" className="px-4 py-3 w-[80px]">GANHO%</th>
-              <th scope="col" className="px-4 py-3 w-[80px]">ASSERT%</th>
-              <th scope="col" className="px-4 py-3 w-[100px]">DATA</th>
-              <th scope="col" className="px-4 py-3 w-[96px]">HORA</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.map((entry, index) => (
-              <tr
-                key={index}
-                className="border-t border-gray-700 hover:bg-[#1e3a4c]"
-              >
-                <td className="px-4 py-2 font-medium whitespace-nowrap">
-                  {entry.par}
-                </td>
-                <td
-                  className={`px-4 py-2 font-bold ${
-                    entry.sinal === 'LONG'
-                      ? 'text-green-400'
-                      : entry.sinal === 'SHORT'
-                      ? 'text-red-400'
-                      : 'text-gray-400'
-                  }`}
-                >
-                  {entry.sinal}
-                </td>
-                <td className="px-4 py-2 font-semibold text-yellow-300">
-                  {entry.preco.toFixed(4)}
-                </td>
-                <td className="px-4 py-2">{entry.alvo.toFixed(4)}</td>
-                <td
-                  className={`px-4 py-2 ${
-                    entry.ganho > 0 ? 'text-green-400' : 'text-white'
-                  }`}
-                >
-                  {entry.ganho.toFixed(2)}
-                </td>
-                <td className="px-4 py-2">
-                  {entry.assert_pct.toFixed(2)}
-                </td>
-                <td className="px-4 py-2">{entry.data}</td>
-                <td className="px-4 py-2">{entry.hora}</td>
+            return (
+              <tr key={`${linha.par}-${idx}`} className="border-b border-slate-700 last:border-b-0">
+                <td className="px-1 py-0.5">{linha.par}</td>
+                <td className={`px-1 py-0.5 text-center font-semibold ${sinalClass}`}>{linha.sinal}</td>
+                <td className="px-1 py-0.5 text-center">{linha.data || '--'}</td>
+                <td className="px-1 py-0.5 text-center">{linha.hora || '--'}</td>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            );
+          })}
+        </tbody>
+      </table>
     </div>
   );
+};
 
-  if (loading && swingData.length === 0 && posicionalData.length === 0) {
-    return (
-      <div className="text-center text-lg text-gray-300">
-        Carregando dados de entrada...
-      </div>
-    );
-  }
+const EntryPanel: React.FC = () => {
+  const [swing, setSwing] = useState<EntryData[]>([]);
+  const [posicional, setPosicional] = useState<EntryData[]>([]);
+  const [carregando, setCarregando] = useState(true);
+  const [erro, setErro] = useState<string | null>(null);
+  const [horaAtualizacao, setHoraAtualizacao] = useState<string>('');
 
-  if (error && swingData.length === 0 && posicionalData.length === 0) {
-    return (
-      <p className="text-center text-red-400 bg-red-900 bg-opacity-30 p-3 rounded-md mb-4">
-        {error}
-      </p>
-    );
-  }
+  useEffect(() => {
+    const buscar = async () => {
+      try {
+        setCarregando(true);
+        setErro(null);
+
+        const { swing, posicional } = await carregarEntrada();
+        setSwing(swing);
+        setPosicional(posicional);
+
+        const agora = new Date();
+        const hh = String(agora.getHours()).padStart(2, '0');
+        const mm = String(agora.getMinutes()).padStart(2, '0');
+        const ss = String(agora.getSeconds()).padStart(2, '0');
+        setHoraAtualizacao(`${hh}:${mm}:${ss}`);
+      } catch (e: any) {
+        console.error(e);
+        setErro(e.message ?? 'Erro ao carregar dados de entrada.');
+      } finally {
+        setCarregando(false);
+      }
+    };
+
+    buscar();
+  }, []);
 
   return (
-    <div className="w-full">
-      {error && (
-        <p className="text-center text-yellow-300 bg-yellow-900 bg-opacity-20 p-3 rounded-md mb-4 text-sm">
-          {error}
-        </p>
-      )}
+    <div className="min-h-screen bg-[#001529] text-white p-4">
+      <h1 className="text-lg font-semibold text-orange-400 mb-3">PAINEL ENTRADA</h1>
 
-      <div className="flex flex-col lg:flex-row gap-8">
-        {renderTable('ENTRADA 4H - SWING', swingData)}
-        {renderTable('ENTRADA 1H - POSICIONAL', posicionalData)}
+      <div className="text-xs mb-3">
+        {horaAtualizacao && (
+          <span>Dados atualizados às: {horaAtualizacao}</span>
+        )}
+        {carregando && <span className="ml-2">Carregando...</span>}
       </div>
 
-      {lastUpdated && (
-        <p className="text-center text-sm text-gray-400 mt-4">
-          Dados atualizados às: {lastUpdated}
-        </p>
+      {erro && (
+        <div className="mb-3 text-xs text-red-400">
+          Erro: {erro}
+        </div>
       )}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <TabelaEntrada titulo="ENTRADA 4H – SWING" dados={swing} />
+        <TabelaEntrada titulo="ENTRADA 1D – POSICIONAL" dados={posicional} />
+      </div>
     </div>
   );
 };
