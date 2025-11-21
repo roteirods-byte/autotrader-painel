@@ -5,8 +5,8 @@ type EntryData = {
   sinal: string;
   preco: number;
   alvo: number;
-  ganho: number;
-  assert_pct: number;
+  ganho: number;      // ganho em %
+  assert_pct: number; // assertividade em %
   data: string;
   hora: string;
 };
@@ -57,30 +57,66 @@ const TabelaEntrada: React.FC<TabelaProps> = ({ titulo, dados }) => {
       <table className="w-full border-collapse">
         <thead>
           <tr className="text-orange-300 border-b border-slate-600">
-            <th className="px-1 py-1 text-left">PAR</th>
-            <th className="px-1 py-1 text-center">SINAL</th>
-            <th className="px-1 py-1 text-center">DATA</th>
-            <th className="px-1 py-1 text-center">HORA</th>
+            <th className="px-1 py-1 text-left w-[60px]">PAR</th>
+            <th className="px-1 py-1 text-center w-[120px]">SINAL</th>
+            <th className="px-1 py-1 text-right w-[100px]">PREÇO</th>
+            <th className="px-1 py-1 text-right w-[100px]">ALVO</th>
+            <th className="px-1 py-1 text-right w-[80px]">GANHO %</th>
+            <th className="px-1 py-1 text-right w-[80px]">ASSERT %</th>
+            <th className="px-1 py-1 text-center w-[100px]">DATA</th>
+            <th className="px-1 py-1 text-center w-[96px]">HORA</th>
           </tr>
         </thead>
         <tbody>
           {dados.map((linha, idx) => {
-            const sinalClass =
-              linha.sinal === 'LONG'
-                ? 'text-green-400'
-                : linha.sinal === 'SHORT'
-                ? 'text-red-400'
-                : '';
+            const sinalUpper = (linha.sinal || '').toUpperCase();
+            const isLong = sinalUpper === 'LONG';
+            const isShort = sinalUpper === 'SHORT';
+
+            const sinalClass = isLong
+              ? 'text-green-400 font-semibold'
+              : isShort
+              ? 'text-red-400 font-semibold'
+              : 'text-slate-100';
+
+            const ganhoColor =
+              linha.ganho > 0 ? 'text-green-400' : linha.ganho < 0 ? 'text-red-400' : 'text-slate-100';
 
             return (
-              <tr key={`${linha.par}-${idx}`} className="border-b border-slate-700 last:border-b-0">
-                <td className="px-1 py-0.5">{linha.par}</td>
-                <td className={`px-1 py-0.5 text-center font-semibold ${sinalClass}`}>{linha.sinal}</td>
-                <td className="px-1 py-0.5 text-center">{linha.data || '--'}</td>
-                <td className="px-1 py-0.5 text-center">{linha.hora || '--'}</td>
+              <tr
+                key={`${linha.par}-${idx}`}
+                className="border-b border-slate-700 last:border-0 text-[11px]"
+              >
+                <td className="px-1 py-1 text-left">{linha.par}</td>
+                <td className={`px-1 py-1 text-center ${sinalClass}`}>{sinalUpper}</td>
+                <td className="px-1 py-1 text-right">
+                  {linha.preco.toFixed(3)}
+                </td>
+                <td className="px-1 py-1 text-right">
+                  {linha.alvo.toFixed(3)}
+                </td>
+                <td className={`px-1 py-1 text-right ${ganhoColor}`}>
+                  {linha.ganho.toFixed(2)}
+                </td>
+                <td className="px-1 py-1 text-right">
+                  {linha.assert_pct.toFixed(2)}
+                </td>
+                <td className="px-1 py-1 text-center">{linha.data}</td>
+                <td className="px-1 py-1 text-center">{linha.hora}</td>
               </tr>
             );
           })}
+
+          {dados.length === 0 && (
+            <tr>
+              <td
+                colSpan={8}
+                className="px-2 py-4 text-center text-slate-400 italic"
+              >
+                Nenhum sinal disponível.
+              </td>
+            </tr>
+          )}
         </tbody>
       </table>
     </div>
@@ -90,46 +126,45 @@ const TabelaEntrada: React.FC<TabelaProps> = ({ titulo, dados }) => {
 const EntryPanel: React.FC = () => {
   const [swing, setSwing] = useState<EntryData[]>([]);
   const [posicional, setPosicional] = useState<EntryData[]>([]);
-  const [carregando, setCarregando] = useState(true);
+  const [carregando, setCarregando] = useState<boolean>(false);
   const [erro, setErro] = useState<string | null>(null);
-  const [horaAtualizacao, setHoraAtualizacao] = useState<string>('');
+
+  const atualizar = async () => {
+    try {
+      setCarregando(true);
+      setErro(null);
+      const dados = await carregarEntrada();
+      setSwing(dados.swing);
+      setPosicional(dados.posicional);
+    } catch (e: any) {
+      console.error(e);
+      setErro(e?.message ?? 'Erro ao carregar os dados de entrada.');
+    } finally {
+      setCarregando(false);
+    }
+  };
 
   useEffect(() => {
-    const buscar = async () => {
-      try {
-        setCarregando(true);
-        setErro(null);
-
-        const { swing, posicional } = await carregarEntrada();
-        setSwing(swing);
-        setPosicional(posicional);
-
-        const agora = new Date();
-        const hh = String(agora.getHours()).padStart(2, '0');
-        const mm = String(agora.getMinutes()).padStart(2, '0');
-        const ss = String(agora.getSeconds()).padStart(2, '0');
-        setHoraAtualizacao(`${hh}:${mm}:${ss}`);
-      } catch (e: any) {
-        console.error(e);
-        setErro(e.message ?? 'Erro ao carregar dados de entrada.');
-      } finally {
-        setCarregando(false);
-      }
-    };
-
-    buscar();
+    atualizar();
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#001529] text-white p-4">
-      <h1 className="text-lg font-semibold text-orange-400 mb-3">PAINEL ENTRADA</h1>
-
-      <div className="text-xs mb-3">
-        {horaAtualizacao && (
-          <span>Dados atualizados às: {horaAtualizacao}</span>
-        )}
-        {carregando && <span className="ml-2">Carregando...</span>}
+    <div className="w-full max-w-7xl mx-auto text-white">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-xl font-semibold text-orange-400">
+          MONITORAMENTO DE ENTRADA
+        </h2>
+        <button
+          onClick={atualizar}
+          className="px-3 py-1 rounded-lg bg-sky-600 hover:bg-sky-500 text-xs font-semibold"
+        >
+          ATUALIZAR
+        </button>
       </div>
+
+      {carregando && (
+        <div className="mb-3 text-xs text-slate-300">Carregando dados...</div>
+      )}
 
       {erro && (
         <div className="mb-3 text-xs text-red-400">
