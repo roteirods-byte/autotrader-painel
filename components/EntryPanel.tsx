@@ -115,38 +115,27 @@ const EntradaTable: React.FC<TableProps> = ({ titulo, dados }) => {
 
 const EntryPanel: React.FC = () => {
   const [dados, setDados] = useState<EntradaResponse | null>(null);
-  const [status, setStatus] = useState<"carregando" | "ok" | "erro">(
-    "carregando"
-  );
-  const [mensagemErro, setMensagemErro] = useState<string>("");
+  const [loading, setLoading] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+
+  const carregar = async () => {
+    try {
+      setLoading(true);
+      setErro(null);
+      const data = await fetchEntrada();
+      setDados(data);
+    } catch (e) {
+      console.error(e);
+      setErro(String(e));
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    let cancelado = false;
-
-    async function carregar() {
-      try {
-        setStatus("carregando");
-        const data = await fetchEntrada();
-        if (!cancelado) {
-          setDados(data);
-          setStatus("ok");
-        }
-      } catch (err) {
-        console.error(err);
-        if (!cancelado) {
-          setStatus("erro");
-          setMensagemErro(String(err));
-        }
-      }
-    }
-
     carregar();
-    const id = setInterval(carregar, 60_000); // atualiza a cada 1min
-
-    return () => {
-      cancelado = True;
-      clearInterval(id);
-    };
+    const id = setInterval(carregar, 60000); // atualiza a cada 1min
+    return () => clearInterval(id);
   }, []);
 
   const agora = new Date();
@@ -163,13 +152,13 @@ const EntryPanel: React.FC = () => {
         Dados atualizados às: {horaPainel}
       </p>
 
-      {status === "carregando" && (
+      {loading && (
         <p className="text-xs text-slate-300 mb-3">Carregando sinais...</p>
       )}
 
-      {status === "erro" && (
+      {erro && (
         <p className="text-xs text-red-400 mb-3">
-          Erro ao buscar /api/entrada: {mensagemErro}
+          Erro ao buscar /api/entrada: {erro}
         </p>
       )}
 
