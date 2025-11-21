@@ -1,85 +1,66 @@
+// server.js
 // Backend simples para o painel AUTOTRADER
-// Lê a planilha da automação e devolve JSON para o painel de ENTRADA.
+// Lê o arquivo entrada.json gerado pela automação Python
+// e devolve JSON para o painel de ENTRADA.
 
+// CommonJS (para rodar fácil em Node comum)
 const express = require('express');
 const cors = require('cors');
-const { google } = require('googleapis');
+const fs = require('fs');
+const path = require('path');
 
 const PORT = process.env.BACKEND_PORT || 8080;
-const SHEET_ID = process.env.SHEETS_SPREADSHEET_ID;
 
-// Ajuste os ranges conforme o nome das abas da sua PLANILHA ENTRADA
-const SWING_RANGE =
-  process.env.SHEET_SWING_RANGE || 'ENTRADA 4H - SWING!A2:H';
-const POSICIONAL_RANGE =
-  process.env.SHEET_POSICIONAL_RANGE || 'ENTRADA 1H - POSICIONAL!A2:H';
+// Caminho do arquivo entrada.json
+// Ex: ENT#RADA_JSON_PATH=/home/usuario/entrada.json
+const DATA_FILE =
+  process.env.ENTRADA_JSON_PATH || path.join(__dirname, 'entrada.json');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-async function getSheetsClient() {
-  if (!SHEET_ID) {
-    throw new Error('SHEETS_SPREADSHEET_ID não configurado');
+/**
+ * Lê e parseia o arquivo entrada.json.
+ * Espera um formato assim:
+ * {
+ *   "swing": [...],
+ *   "posicional": [...]
+ * }
+ */
+function readEntradaJson() {
+  if (!fs.existsSync(DATA_FILE)) {
+    throw new Error(`Arquivo não encontrado: ${DATA_FILE}`);
   }
 
-  const auth = await google.auth.getClient({
-    scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
-  });
+  const raw = fs.readFileSync(DATA_FILE, 'utf-8');
+  const data = JSON.parse(raw);
 
-  return google.sheets({ version: 'v4', auth });
+  const swing = Array.isArray(data.swing) ? data.swing : [];
+  const posicional = Array.isArray(data.posicional) ? data.posicional : [];
+
+  return { swing, posicional };
 }
 
-async function readRange(range) {
-  const sheets = await getSheetsClient();
-  const res = await sheets.spreadsheets.values.get({
-    spreadsheetId: SHEET_ID,
-    range,
-  });
-  return res.data.values || [];
-}
-
-function parseNumber(value) {
-  if (value === undefined || value === null || value === '') return 0;
-  const n = Number(String(value).replace(',', '.'));
-  return Number.isFinite(n) ? n : 0;
-}
-
-function mapRow(row) {
-  const [par, sinal, preco, alvo, ganho, assert_pct, data, hora] = row;
-
-  return {
-    par: (par || '').toString().trim(),
-    sinal: (sinal || '').toString().trim().toUpperCase(),
-    preco: parseNumber(preco),
-    alvo: parseNumber(alvo),
-    ganho: parseNumber(ganho),
-    assert_pct: parseNumber(assert_pct),
-    data: (data || '').toString(),
-    hora: (hora || '').toString(),
-  };
-}
-
-// endpoint chamado pelo painel: /api/entrada  (via proxy do Vite)
-app.get('/entrada', async (req, res) => {
+// Endpoint principal consumido pelo painel
+app.get('/entrada', (req, res) => {
   try {
-    const [swingRows, posRows] = await Promise.all([
-      readRange(SWING_RANGE),
-      readRange(POSICIONAL_RANGE),
-    ]);
-
-    const swing = swingRows.map(mapRow);
-    const posicional = posRows.map(mapRow);
-
+    const { swing, posicional } = readEntradaJson();
     res.json({ swing, posicional });
   } catch (err) {
     console.error('Erro /entrada:', err);
     res
       .status(500)
-      .json({ error: 'Erro ao ler a planilha de entrada', detail: String(err) });
+      .json({ error: 'Erro ao ler entrada.json', detail: String(err) });
   }
+});
+
+// Endpoint simples de saúde
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', file: DATA_FILE });
 });
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Backend ouvindo em http://0.0.0.0:${PORT}`);
+  console.log(`Lendo dados de: ${DATA_FILE}`);
 });
