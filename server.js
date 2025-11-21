@@ -6,7 +6,7 @@ const fs = require("fs");
 
 const PORT = process.env.BACKEND_PORT || 8080;
 
-// *** CAMINHO CORRETO DO ARQUIVO GERADO PELO WORKER ***
+// CAMINHO DO JSON GERADO PELO WORKER
 const DATA_FILE =
   process.env.ENTRADA_JSON_PATH ||
   "/home/roteiro_ds/autotrader-planilhas-python/entrada.json";
@@ -15,30 +15,39 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-function readEntradaJson() {
-  if (!fs.existsSync(DATA_FILE)) {
-    throw new Error(`Arquivo não encontrado: ${DATA_FILE}`);
+function safeReadEntradaJson() {
+  try {
+    if (!fs.existsSync(DATA_FILE)) {
+      console.warn(`[backend] Arquivo não existe ainda: ${DATA_FILE}`);
+      return { swing: [], posicional: [] };
+    }
+
+    const raw = fs.readFileSync(DATA_FILE, "utf-8");
+    if (!raw.trim()) {
+      console.warn("[backend] Arquivo vazio, retornando listas vazias.");
+      return { swing: [], posicional: [] };
+    }
+
+    const data = JSON.parse(raw);
+
+    const swing = Array.isArray(data.swing) ? data.swing : [];
+    const posicional = Array.isArray(data.posicional) ? data.posicional : [];
+
+    console.log(
+      `[backend] Lido ${swing.length} sinais swing, ${posicional.length} posicional.`
+    );
+
+    return { swing, posicional };
+  } catch (err) {
+    console.error("[backend] Erro ao ler/parsing entrada.json:", err);
+    return { swing: [], posicional: [] };
   }
-
-  const raw = fs.readFileSync(DATA_FILE, "utf-8");
-  const data = JSON.parse(raw || "{}");
-
-  const swing = Array.isArray(data.swing) ? data.swing : [];
-  const posicional = Array.isArray(data.posicional) ? data.posicional : [];
-
-  return { swing, posicional };
 }
 
 app.get("/entrada", (req, res) => {
-  try {
-    const { swing, posicional } = readEntradaJson();
-    res.json({ swing, posicional });
-  } catch (err) {
-    console.error("Erro /entrada:", err);
-    res
-      .status(500)
-      .json({ error: "Erro ao ler entrada.json", detail: String(err) });
-  }
+  const { swing, posicional } = safeReadEntradaJson();
+  // Nunca devolve 500 aqui; sempre 200 com listas (podem estar vazias)
+  res.json({ swing, posicional });
 });
 
 app.get("/health", (req, res) => {
