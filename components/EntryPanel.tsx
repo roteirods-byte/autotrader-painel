@@ -1,180 +1,187 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from "react";
 
-type EntryData = {
+type EntradaItem = {
   par: string;
-  sinal: string;
+  sinal: "LONG" | "SHORT";
   preco: number;
   alvo: number;
-  ganho: number;      // ganho em %
-  assert_pct: number; // assertividade em %
+  ganho_pct: number;
+  assert_pct: number;
   data: string;
   hora: string;
 };
 
 type EntradaResponse = {
-  swing: EntryData[];
-  posicional: EntryData[];
+  swing: EntradaItem[];
+  posicional: EntradaItem[];
 };
 
-async function carregarEntrada(): Promise<EntradaResponse> {
-  const resp = await fetch('/api/entrada');
-
+async function fetchEntrada(): Promise<EntradaResponse> {
+  const resp = await fetch("/api/entrada");
   if (!resp.ok) {
-    throw new Error(`Erro ao buscar /api/entrada: ${resp.status} ${resp.statusText}`);
+    throw new Error(`Erro ao buscar /api/entrada: ${resp.status}`);
   }
-
-  const json = await resp.json();
-
-  const normalizar = (item: any): EntryData => ({
-    par: String(item.par ?? ''),
-    sinal: String(item.sinal ?? ''),
-    preco: Number(item.preco ?? 0),
-    alvo: Number(item.alvo ?? 0),
-    ganho: Number(item.ganho_pct ?? item.ganho ?? 0),
-    assert_pct: Number(item.assert_pct ?? 0),
-    data: String(item.data ?? ''),
-    hora: String(item.hora ?? ''),
-  });
-
-  const swing = Array.isArray(json.swing) ? json.swing.map(normalizar) : [];
-  const posicional = Array.isArray(json.posicional) ? json.posicional.map(normalizar) : [];
-
-  swing.sort((a, b) => a.par.localeCompare(b.par));
-  posicional.sort((a, b) => a.par.localeCompare(b.par));
-
-  return { swing, posicional };
+  return resp.json();
 }
 
-type TabelaProps = {
+function formatNumber(
+  value: number,
+  decimals: number,
+  suffix: string | null = null
+): string {
+  const fmt = value.toFixed(decimals).replace(".", ",");
+  return suffix ? `${fmt}${suffix}` : fmt;
+}
+
+function cellSignal(value: string) {
+  const base = "font-semibold";
+  if (value === "LONG") return <span className={`${base} text-green-400`}>LONG</span>;
+  if (value === "SHORT") return <span className={`${base} text-red-400`}>SHORT</span>;
+  return <span className={base}>{value}</span>;
+}
+
+function cellPercent(value: number) {
+  const cls =
+    value >= 0 ? "text-green-400 font-semibold" : "text-red-400 font-semibold";
+  return <span className={cls}>{formatNumber(value, 2, "%")}</span>;
+}
+
+interface TableProps {
   titulo: string;
-  dados: EntryData[];
-};
+  dados: EntradaItem[];
+}
 
-const TabelaEntrada: React.FC<TabelaProps> = ({ titulo, dados }) => {
+const EntradaTable: React.FC<TableProps> = ({ titulo, dados }) => {
   return (
-    <div className="bg-[#002238] rounded-2xl p-3 shadow-lg text-xs">
-      <h2 className="text-orange-400 font-semibold mb-2">{titulo}</h2>
-      <table className="w-full border-collapse">
-        <thead>
-          <tr className="text-orange-300 border-b border-slate-600">
-            <th className="px-1 py-1 text-left w-[60px]">PAR</th>
-            <th className="px-1 py-1 text-center w-[120px]">SINAL</th>
-            <th className="px-1 py-1 text-right w-[100px]">PREÇO</th>
-            <th className="px-1 py-1 text-right w-[100px]">ALVO</th>
-            <th className="px-1 py-1 text-right w-[80px]">GANHO %</th>
-            <th className="px-1 py-1 text-right w-[80px]">ASSERT %</th>
-            <th className="px-1 py-1 text-center w-[100px]">DATA</th>
-            <th className="px-1 py-1 text-center w-[96px]">HORA</th>
-          </tr>
-        </thead>
-        <tbody>
-          {dados.map((linha, idx) => {
-            const sinalUpper = (linha.sinal || '').toUpperCase();
-            const isLong = sinalUpper === 'LONG';
-            const isShort = sinalUpper === 'SHORT';
-
-            const sinalClass = isLong
-              ? 'text-green-400 font-semibold'
-              : isShort
-              ? 'text-red-400 font-semibold'
-              : 'text-slate-100';
-
-            const ganhoColor =
-              linha.ganho > 0 ? 'text-green-400' : linha.ganho < 0 ? 'text-red-400' : 'text-slate-100';
-
-            return (
-              <tr
-                key={`${linha.par}-${idx}`}
-                className="border-b border-slate-700 last:border-0 text-[11px]"
-              >
-                <td className="px-1 py-1 text-left">{linha.par}</td>
-                <td className={`px-1 py-1 text-center ${sinalClass}`}>{sinalUpper}</td>
-                <td className="px-1 py-1 text-right">
-                  {linha.preco.toFixed(3)}
-                </td>
-                <td className="px-1 py-1 text-right">
-                  {linha.alvo.toFixed(3)}
-                </td>
-                <td className={`px-1 py-1 text-right ${ganhoColor}`}>
-                  {linha.ganho.toFixed(2)}
-                </td>
-                <td className="px-1 py-1 text-right">
-                  {linha.assert_pct.toFixed(2)}
-                </td>
-                <td className="px-1 py-1 text-center">{linha.data}</td>
-                <td className="px-1 py-1 text-center">{linha.hora}</td>
-              </tr>
-            );
-          })}
-
-          {dados.length === 0 && (
+    <div className="bg-slate-900 rounded-2xl p-4 w-full">
+      <h2 className="text-orange-400 font-semibold mb-2 text-sm">{titulo}</h2>
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs text-left text-slate-100">
+          <thead className="text-[11px] uppercase text-orange-400 border-b border-slate-700">
             <tr>
-              <td
-                colSpan={8}
-                className="px-2 py-4 text-center text-slate-400 italic"
-              >
-                Nenhum sinal disponível.
-              </td>
+              <th className="px-2 py-1">PAR</th>
+              <th className="px-2 py-1">SINAL</th>
+              <th className="px-2 py-1 text-right">PREÇO</th>
+              <th className="px-2 py-1 text-right">ALVO</th>
+              <th className="px-2 py-1 text-right">GANHO %</th>
+              <th className="px-2 py-1 text-right">ASSERT %</th>
+              <th className="px-2 py-1 text-center">DATA</th>
+              <th className="px-2 py-1 text-center">HORA</th>
             </tr>
-          )}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {dados.length === 0 ? (
+              <tr>
+                <td
+                  colSpan={8}
+                  className="px-2 py-3 text-center text-slate-400 italic"
+                >
+                  Nenhum sinal disponível.
+                </td>
+              </tr>
+            ) : (
+              dados.map((row) => (
+                <tr
+                  key={`${row.par}-${row.data}-${row.hora}`}
+                  className="border-b border-slate-800 last:border-0"
+                >
+                  <td className="px-2 py-1 font-semibold text-slate-100">
+                    {row.par}
+                  </td>
+                  <td className="px-2 py-1">{cellSignal(row.sinal)}</td>
+                  <td className="px-2 py-1 text-right">
+                    {formatNumber(row.preco, 3)}
+                  </td>
+                  <td className="px-2 py-1 text-right">
+                    {formatNumber(row.alvo, 3)}
+                  </td>
+                  <td className="px-2 py-1 text-right">
+                    {cellPercent(row.ganho_pct)}
+                  </td>
+                  <td className="px-2 py-1 text-right">
+                    {formatNumber(row.assert_pct, 2, "%")}
+                  </td>
+                  <td className="px-2 py-1 text-center">{row.data}</td>
+                  <td className="px-2 py-1 text-center">{row.hora}</td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 };
 
 const EntryPanel: React.FC = () => {
-  const [swing, setSwing] = useState<EntryData[]>([]);
-  const [posicional, setPosicional] = useState<EntryData[]>([]);
-  const [carregando, setCarregando] = useState<boolean>(false);
-  const [erro, setErro] = useState<string | null>(null);
-
-  const atualizar = async () => {
-    try {
-      setCarregando(true);
-      setErro(null);
-      const dados = await carregarEntrada();
-      setSwing(dados.swing);
-      setPosicional(dados.posicional);
-    } catch (e: any) {
-      console.error(e);
-      setErro(e?.message ?? 'Erro ao carregar os dados de entrada.');
-    } finally {
-      setCarregando(false);
-    }
-  };
+  const [dados, setDados] = useState<EntradaResponse | null>(null);
+  const [status, setStatus] = useState<"carregando" | "ok" | "erro">(
+    "carregando"
+  );
+  const [mensagemErro, setMensagemErro] = useState<string>("");
 
   useEffect(() => {
-    atualizar();
+    let cancelado = false;
+
+    async function carregar() {
+      try {
+        setStatus("carregando");
+        const data = await fetchEntrada();
+        if (!cancelado) {
+          setDados(data);
+          setStatus("ok");
+        }
+      } catch (err) {
+        console.error(err);
+        if (!cancelado) {
+          setStatus("erro");
+          setMensagemErro(String(err));
+        }
+      }
+    }
+
+    carregar();
+    const id = setInterval(carregar, 60_000); // atualiza a cada 1min
+
+    return () => {
+      cancelado = True;
+      clearInterval(id);
+    };
   }, []);
 
+  const agora = new Date();
+  const horaPainel = agora.toLocaleTimeString("pt-BR", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+
   return (
-    <div className="w-full max-w-7xl mx-auto text-white">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xl font-semibold text-orange-400">
-          MONITORAMENTO DE ENTRADA
-        </h2>
-        <button
-          onClick={atualizar}
-          className="px-3 py-1 rounded-lg bg-sky-600 hover:bg-sky-500 text-xs font-semibold"
-        >
-          ATUALIZAR
-        </button>
-      </div>
+    <div className="px-6 py-6 text-slate-100">
+      <h1 className="text-orange-400 text-lg font-bold mb-1">PAINEL ENTRADA</h1>
+      <p className="text-xs text-slate-300 mb-4">
+        Dados atualizados às: {horaPainel}
+      </p>
 
-      {carregando && (
-        <div className="mb-3 text-xs text-slate-300">Carregando dados...</div>
+      {status === "carregando" && (
+        <p className="text-xs text-slate-300 mb-3">Carregando sinais...</p>
       )}
 
-      {erro && (
-        <div className="mb-3 text-xs text-red-400">
-          Erro: {erro}
-        </div>
+      {status === "erro" && (
+        <p className="text-xs text-red-400 mb-3">
+          Erro ao buscar /api/entrada: {mensagemErro}
+        </p>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <TabelaEntrada titulo="ENTRADA 4H – SWING" dados={swing} />
-        <TabelaEntrada titulo="ENTRADA 1D – POSICIONAL" dados={posicional} />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <EntradaTable
+          titulo="ENTRADA 4H – SWING"
+          dados={dados?.swing ?? []}
+        />
+        <EntradaTable
+          titulo="ENTRADA 1D – POSICIONAL"
+          dados={dados?.posicional ?? []}
+        />
       </div>
     </div>
   );
